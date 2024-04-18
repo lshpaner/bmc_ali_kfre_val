@@ -1,1 +1,1 @@
-# bmc_ali_kfre_val
+# Validating Ali et al.'s KFRE
