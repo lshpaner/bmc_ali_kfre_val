@@ -100,6 +100,152 @@ def data_types(df):
 
 
 ################################################################################
+################################ Cross-Tab Plot ################################
+################################################################################
+
+
+def crosstab_plot(
+    df,
+    outcome,
+    sub1,
+    sub2,
+    x,
+    y,
+    list_name,
+    col1,
+    bbox_to_anchor,
+    w_pad,
+    h_pad,
+    item1=None,
+    item2=None,
+    label1=None,
+    label2=None,
+    crosstab_option=True,
+    image_path_png=None,
+    image_path_svg=None,
+    image_filename=None,
+    tight_layout=True,
+    bbox_inches=None,
+):
+    """
+    Generates a series of crosstab plots to visualize the relationship between
+    an outcome variable and several categorical variables within a dataset. Each
+    subplot represents the distribution of outcomes for a specific categorical
+    variable, allowing for comparisons across categories.
+
+    The subplot grid, plot size, legend placement, and subplot padding are
+    customizable. The function can create standard or normalized crosstab plots
+    based on the 'crosstab_option' flag.
+
+    Parameters:
+    - df: The DataFrame to pass in.
+    - sub1, sub2 (int): The number of rows and columns in the subplot grid.
+    - x, y (int): Width & height of ea. subplot, affecting the overall fig. size.
+    - list_name (list[str]): A list of strings rep. the column names to be plotted.
+    - label1, label2 (str): Labels for the x-axis categories, corresponding to
+                            the unique values in the 'outcome' variable of the
+                            dataframe.
+    - col1 (str): The column name in the dataframe for which custom legend
+                  labels are desired.
+    - item1, item2 (str): Custom legend labels for the plot corresponding to 'col1'.
+    - bbox_to_anchor (tuple): A tuple of (x, y) coordinates to anchor the legend to a
+                              specific point within the axes.
+    - w_pad, h_pad (float): The amount of width and height padding (space)
+                            between subplots.
+    - crosstab_option (bool, optional): If True, generates standard crosstab
+                                        plots. If False, generates normalized
+                                        crosstab plots, which are useful for
+                                        comparing distributions across groups
+                                        with different sizes.
+    - image_path_png (str): Path to save PNG files.
+    - image_path_svg (str): Path to save SVG files.
+    - image_filename (str): Base filename for the output image.
+    - bbox_inches (str): specify tightness of bbox_inches for visibility.
+
+    The function creates a figure with the specified number of subplots laid out
+    in a grid, plots the crosstabulation data as bar plots within each subplot,
+    and then adjusts the legend and labels accordingly. It uses a tight layout
+    with specified padding to ensure that subplots are neatly arranged without
+    overlapping elements.
+    """
+
+    fig, axes = plt.subplots(sub1, sub2, figsize=(x, y))
+    for item, ax in zip(list_name, axes.flatten()):
+        if crosstab_option:
+            # Set a fixed number of ticks for raw data
+            ax.set_ylabel("Frequency"),
+            crosstab_data = pd.crosstab(df[outcome], df[item])
+            crosstab_data.plot(
+                kind="bar",
+                stacked=True,
+                rot=0,
+                ax=ax,
+                color=["#00BFC4", "#F8766D"],
+            )
+
+        else:
+            # Set a fixed number of ticks for percentage data
+            ax.yaxis.set_major_formatter(
+                plt.FuncFormatter(lambda y, _: "{:.2f}".format(y))
+            )
+            ax.set_ylabel("Percentage"),
+            # Computing normalized crosstabulation
+            crosstab_data = pd.crosstab(
+                df[outcome],
+                df[item],
+                normalize="index",
+            )
+            crosstab_data.plot(
+                kind="bar",
+                stacked=True,
+                rot=0,
+                ax=ax,
+                color=["#00BFC4", "#F8766D"],
+            )
+
+        new_labels = [label1, label2]
+        ax.set_xticklabels(new_labels)
+        # new_legend = ["Not Obese", "Obese"]
+        # ax.legend(new_legend)
+        ax.set_title(f"{outcome} vs. {item}")
+        ax.set_xlabel("Outcome")
+        # Dynamically setting legend labels
+        # Check if the current column is 'Sex' for custom legend labels
+        if item == col1:
+            legend_labels = [item1, item2]
+        else:
+            # Dynamically setting legend labels for other columns
+            legend_labels = ["NOT {}".format(item), "{}".format(item)]
+
+        # Updating legend with custom labels
+        handles, _ = ax.get_legend_handles_labels()
+        ax.legend(
+            handles,
+            legend_labels,
+            loc="upper center",
+            bbox_to_anchor=bbox_to_anchor,
+            ncol=1,
+        )
+
+    if tight_layout:
+        plt.tight_layout(w_pad=w_pad, h_pad=h_pad)
+
+    # Save files if paths are provided
+    if image_path_png and image_filename:
+        plt.savefig(
+            os.path.join(image_path_png, f"{image_filename}.png"),
+            bbox_inches=bbox_inches,
+        )
+    if image_path_svg and image_filename:
+        plt.savefig(
+            os.path.join(image_path_svg, f"{image_filename}.svg"),
+            bbox_inches=bbox_inches,
+        )
+
+    plt.show()
+
+
+################################################################################
 ############################# Stacked Bar Plot #################################
 ################################################################################
 
