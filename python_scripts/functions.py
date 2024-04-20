@@ -2,9 +2,11 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import textwrap
 import random  # for generating random numbers and performing random operations
 import os
 import sys
+import warnings
 
 ################################################################################
 ############################# Path Directories #################################
@@ -246,6 +248,105 @@ def crosstab_plot(
 
 
 ################################################################################
+############################# Box Plots Assortment #############################
+################################################################################
+
+
+import os
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+def create_metrics_boxplots(
+    df_eda,
+    metrics_list,
+    metrics_boxplot_comp,
+    n_rows,
+    n_cols,
+    image_path_png,
+    image_path_svg,
+    save_individual=True,
+    save_grid=True,
+    save_both=False,
+):
+    """
+    Create and save individual boxplots, an entire grid of boxplots, or both for
+    given metrics and comparisons.
+
+    Parameters:
+    - df_eda: DataFrame containing the data.
+    - metrics_list: List of metric names (columns in df_eda) to plot.
+    - metrics_boxplot_comp: List of comparison categories (columns in df_eda).
+    - n_rows: Number of rows in the subplot grid.
+    - n_cols: Number of columns in the subplot grid.
+    - image_path_png: Directory path to save .png images.
+    - image_path_svg: Directory path to save .svg images.
+    - save_individual: Boolean, True if saving each subplot as an individual file.
+    - save_grid: Boolean, True if saving the entire grid as one image.
+    - save_both: Boolean, True if saving both individual and grid images.
+    """
+    # Ensure the directories exist
+    os.makedirs(image_path_png, exist_ok=True)
+    os.makedirs(image_path_svg, exist_ok=True)
+
+    if save_both:
+        save_individual = True
+        save_grid = True
+
+    # Save individual plots if required
+    if save_individual:
+        for met_comp in metrics_boxplot_comp:
+            for met_list in metrics_list:
+                plt.figure(figsize=(6, 4))  # Adjust the size as needed
+                sns.boxplot(x=df_eda[met_comp], y=df_eda[met_list])
+                plt.title(f"Distribution of {met_list} by {met_comp}")
+                plt.xlabel(met_comp)
+                plt.ylabel(met_list)
+                safe_met_list = (
+                    met_list.replace(" ", "_")
+                    .replace("(", "")
+                    .replace(")", "")
+                    .replace("/", "_per_")
+                )
+                filename_png = f"{safe_met_list}_by_{met_comp}.png"
+                filename_svg = f"{safe_met_list}_by_{met_comp}.svg"
+                plt.savefig(
+                    os.path.join(image_path_png, filename_png), bbox_inches="tight"
+                )
+                plt.savefig(
+                    os.path.join(image_path_svg, filename_svg), bbox_inches="tight"
+                )
+                plt.close()
+
+    # Save the entire grid if required
+    if save_grid:
+        fig, axs = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 5 * n_rows))
+        axs = axs.flatten()
+
+        for i, ax in enumerate(axs):
+            if i < len(metrics_list) * len(metrics_boxplot_comp):
+                met_comp = metrics_boxplot_comp[i // len(metrics_list)]
+                met_list = metrics_list[i % len(metrics_list)]
+                sns.boxplot(x=df_eda[met_comp], y=df_eda[met_list], ax=ax)
+                ax.set_title(f"Distribution of {met_list} by {met_comp}")
+                ax.set_xlabel(met_comp)
+                ax.set_ylabel(met_list)
+            else:
+                ax.set_visible(False)
+
+        plt.tight_layout()
+        fig.savefig(
+            os.path.join(image_path_png, "all_boxplot_comparisons.png"),
+            bbox_inches="tight",
+        )
+        fig.savefig(
+            os.path.join(image_path_svg, "all_boxplot_comparisons.svg"),
+            bbox_inches="tight",
+        )
+        plt.close(fig)
+
+
+################################################################################
 ############################# Stacked Bar Plot #################################
 ################################################################################
 
@@ -401,4 +502,62 @@ def stacked_plot(
                 full_path = image_path[save_format]
                 plt.savefig(full_path, bbox_inches="tight")
 
+    plt.show()
+
+
+################################################################################
+############################ KDE Distribution Plots ############################
+################################################################################
+
+
+def kde_distributions(
+    df,
+    dist_list,
+    x,
+    y,
+    kde=True,
+    n_rows=1,
+    n_cols=1,
+    w_pad=1.0,
+    h_pad=1.0,
+    text_wrap=50,
+    image_path_png=None,
+    image_path_svg=None,
+    image_filename=None,
+    bbox_inches=None,
+):
+    if not dist_list:
+        print("Error: No distribution list provided.")
+        return
+
+    # Calculate the number of columns needed
+
+    # Create subplots grid
+    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(x, y))
+
+    # Flatten the axes array to simplify iteration
+    axes = axes.flatten()
+
+    # Iterate over the provided column list and corresponding axes
+    for ax, col in zip(axes, dist_list):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            # Wrap the title if it's too long
+            title = f"Distribution of {col}"
+            sns.histplot(df[col], kde=kde, ax=ax)
+            ax.set_title("\n".join(textwrap.wrap(title, width=text_wrap)))
+
+        # Adjust layout with specified padding
+    plt.tight_layout(w_pad=w_pad, h_pad=h_pad)
+    # Save files if paths are provided
+    if image_path_png and image_filename:
+        plt.savefig(
+            os.path.join(image_path_png, f"{image_filename}.png"),
+            bbox_inches=bbox_inches,
+        )
+    if image_path_svg and image_filename:
+        plt.savefig(
+            os.path.join(image_path_svg, f"{image_filename}.svg"),
+            bbox_inches=bbox_inches,
+        )
     plt.show()
