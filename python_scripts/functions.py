@@ -343,6 +343,7 @@ def create_metrics_boxplots(
             os.path.join(image_path_svg, "all_boxplot_comparisons.svg"),
             bbox_inches="tight",
         )
+        plt.show()  # show the plot(s)
         plt.close(fig)
 
 
