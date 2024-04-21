@@ -252,11 +252,6 @@ def crosstab_plot(
 ################################################################################
 
 
-import os
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-
 def create_metrics_boxplots(
     df_eda,
     metrics_list,
