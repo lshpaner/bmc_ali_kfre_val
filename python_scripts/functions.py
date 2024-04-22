@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from datetime import datetime
 import matplotlib.pyplot as plt
 import seaborn as sns
 import textwrap
@@ -55,6 +56,44 @@ def add_patient_ids(df, seed=None):
 
     return df
 
+################################################################################
+########################### Standardized Dates #################################
+################################################################################
+
+# Function to parse and standardize date strings based on the new rule
+def parse_date_with_rule(date_str):
+    """
+    Parse and standardize date strings based on the provided rule.
+    
+    This function takes a date string and standardizes it to the ISO 8601 format 
+    (YYYY-MM-DD). It assumes dates are provided in either day/month/year or 
+    month/day/year format. The function first checks if the first part of the 
+    date string (day or month) is greater than 12, which unambiguously indicates
+    a day/month/year format. If the first part is 12 or less, the function 
+    attempts to parse the date as month/day/year, falling back to day/month/year 
+    if the former raises a ValueError due to an impossible date (e.g., month 
+    being greater than 12).
+    
+    Parameters:
+        date_str (str): A date string to be standardized.
+
+    Returns:
+        str: A standardized date string in the format YYYY-MM-DD.
+
+    Raises:
+        ValueError: If date_str is in an unrecognized format or if the function 
+        cannot parse the date.
+    """
+    parts = date_str.split("/")
+    # If the first part is greater than 12, it can only be a day, thus d/m/Y
+    if int(parts[0]) > 12:
+        return datetime.strptime(date_str, "%d/%m/%Y").strftime("%Y-%m-%d")
+    # Otherwise, try both formats where ambiguity exists
+    else:
+        try:
+            return datetime.strptime(date_str, "%m/%d/%Y").strftime("%Y-%m-%d")
+        except ValueError:
+            return datetime.strptime(date_str, "%d/%m/%Y").strftime("%Y-%m-%d")
 
 ################################################################################
 ############################ Data Types Report #################################
