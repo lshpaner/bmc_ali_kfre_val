@@ -20,7 +20,11 @@ class RiskPredictor:
     number of years, optionally using extra variables for the prediction.
     """
 
-    def __init__(self, data, columns,):
+    def __init__(
+        self,
+        data,
+        columns,
+    ):
         """
         Constructs the necessary attributes for the RiskPredictor object.
 
@@ -31,7 +35,7 @@ class RiskPredictor:
         Example: {'age': 'Age', 'sex': 'Gender', 'eGFR': 'eGFR',
         'uACR': 'Albumin_Ratio', 'region': 'Region', 'dm': 'Diabetes',
         'htn': 'Hypertension'}
-        apply_conversions (bool, optional): Flag to apply unit conversions. 
+        apply_conversions (bool, optional): Flag to apply unit conversions.
         Default is False.
         """
         self.data = data
@@ -53,12 +57,12 @@ class RiskPredictor:
         - Phosphate from mmol to mg/g
         - Albumin from g/L to g/dL
         """
-        self.data["uPCR (mg/g)"] = self.data[self.columns['uPCR_mmol']] * 8.84
-        self.data["Calcium (mg/g)"] = self.data[self.columns['calcium_mmol']] * 4
-        self.data["Phosphate (mg/g)"] = self.data[self.columns['phosphate_mmol']] * 3.1
-        self.data["Albumin (g/dL)"] = self.data[self.columns['albumin_g_per_l']] / 10
+        self.data["uPCR (mg/g)"] = self.data[self.columns["uPCR_mmol"]] * 8.84
+        self.data["Calcium (mg/g)"] = self.data[self.columns["calcium_mmol"]] * 4
+        self.data["Phosphate (mg/g)"] = self.data[self.columns["phosphate_mmol"]] * 3.1
+        self.data["Albumin (g/dL)"] = self.data[self.columns["albumin_g_per_l"]] / 10
 
-    def predict(self, years, use_extra_vars=False):
+    def predict_kfre(self, years, use_extra_vars=False):
         """
         Predicts the risk of CKD for the given number of years, optionally using
         extra variables for the prediction.
