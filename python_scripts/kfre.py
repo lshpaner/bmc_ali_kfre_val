@@ -62,7 +62,7 @@ class RiskPredictor:
         self.data["Phosphate (mg/g)"] = self.data[self.columns["phosphate_mmol"]] * 3.1
         self.data["Albumin (g/dL)"] = self.data[self.columns["albumin_g_per_l"]] / 10
 
-    def predict_kfre(self, years, use_extra_vars=False):
+    def predict_kfre(self, years, use_extra_vars=False, num_vars=4):
         """
         Predicts the risk of CKD for the given number of years, optionally using
         extra variables for the prediction.
@@ -72,6 +72,7 @@ class RiskPredictor:
         use_extra_vars (bool, optional): Whether to use extra variables
                                          (diabetes and hypertension status)
                                          for the prediction.
+        num_vars (int, optional): The number of variables to use for the prediction.
 
         Returns:
         risk_prediction (float): The predicted risk of CKD.
@@ -85,10 +86,38 @@ class RiskPredictor:
         uACR = self.data[self.columns["uACR"]]
         region = self.data.get(self.columns["region"], "Unknown")
 
-        if use_extra_vars:
+        if use_extra_vars and num_vars == 6:
             dm = self.data.get(self.columns["dm"], None)
             htn = self.data.get(self.columns["htn"], None)
-            return risk_pred(age, sex, eGFR, uACR, region, dm, htn, years)
+            return risk_pred(
+                age,
+                sex,
+                eGFR,
+                uACR,
+                region,
+                dm,
+                htn,
+                years=years,
+            )
+
+        elif use_extra_vars and num_vars == 8:
+            albumin = self.data.get(self.columns["albumin"], None)
+            phosphorous = self.data.get(self.columns["phosphorous"], None)
+            bicarbonate = self.data.get(self.columns["bicarbonate"], None)
+            calcium = self.data.get(self.columns["calcium"], None)
+            return risk_pred(
+                age,
+                sex,
+                eGFR,
+                uACR,
+                region,
+                albumin=albumin,
+                phosphorous=phosphorous,
+                bicarbonate=bicarbonate,
+                calcium=calcium,
+                years=years,
+            )
+
         else:
             return risk_pred(age, sex, eGFR, uACR, region, years=years)
 
@@ -155,56 +184,105 @@ def uPCR_to_uACR(
 ################################################################################
 
 
-def risk_pred(age, sex, eGFR, uACR, Region, dm=None, htn=None, years=2):
-    """
-    This function calculates the risk prediction based on various parameters.
-    Different coefficients are used in the calculation based on the geographical
-    region and the duration (in years) for which the risk is being predicted.
-
-    Parameters:
-    Age (float): Age of the individual.
-    Sex (float): Biological sex of the individual, usually coded as 1 for male
-    and 0 for female.
-    entry_egfrckdepi2009_mean (float):
-    Mean eGFR (estimated Glomerular Filtration Rate) value.
-    entry_uacr_mean (float): Mean uacr (Urinary Albumin-to-Creatinine Ratio)
-    value.
-    Region (str): Geographical region of the individual
-    ('North American' or other).
-    entry_dmid_flag (float, optional):
-    Diabetes mellitus status of the individual.
-    entry_htnid_flag (float, optional):
-    Hypertension status of the individual.
-    years (int, optional):
-    Duration for which the risk is being predicted, either 2 or 5 years.
-
-    Returns:
-    risk_prediction (float): Calculated risk prediction.
-    """
-
-    # Determine the value of alpha based on the region and the duration
-    if years == 2:
-        alpha = np.where(Region == "North American", 0.9750, 0.9832)
-    elif years == 5:
-        alpha = np.where(Region == "North American", 0.9240, 0.9365)
+def risk_pred(
+    age,
+    sex,
+    eGFR,
+    uACR,
+    Region,
+    dm=None,
+    htn=None,
+    albumin=None,
+    phosphorous=None,
+    bicarbonate=None,
+    calcium=None,
+    years=2,
+):
+    # Determine alpha based on region, years, and the variables used
+    if dm is not None and htn is not None:
+        # 6-variable model (uses 4-var coefficients for risk factors)
+        alpha_values = {
+            (True, 2): 0.9750,
+            (True, 5): 0.9240,
+            (False, 2): 0.9830,
+            (False, 5): 0.9370,
+        }
+        base_risk_factors = {
+            "age": -0.2201,
+            "sex": 0.2467,
+            "eGFR": -0.5567,
+            "uACR": 0.4510,
+        }
+    elif (
+        albumin is not None
+        and phosphorous is not None
+        and bicarbonate is not None
+        and calcium is not None
+    ):
+        # 8-variable model (uses specific coefficients for risk factors)
+        alpha_values = {
+            (True, 2): 0.9780,
+            (True, 5): 0.9301,
+            (False, 2): 0.9827,
+            (False, 5): 0.9245,
+        }
+        base_risk_factors = {
+            "age": -0.1992,
+            "sex": 0.1602,
+            "eGFR": -0.4919,
+            "uACR": 0.3364,
+        }
     else:
-        # Raise an error if an invalid duration is provided
-        raise ValueError("Invalid years value. Choose 2 or 5.")
+        # 4-variable model (standard coefficients for risk factors)
+        alpha_values = {
+            (True, 2): 0.9750,
+            (True, 5): 0.9240,
+            (False, 2): 0.9832,
+            (False, 5): 0.9365,
+        }
+        base_risk_factors = {
+            "age": -0.2201,
+            "sex": 0.2467,
+            "eGFR": -0.5567,
+            "uACR": 0.4510,
+        }
 
-    # Calculate the diabetes factor, or set it to 0 if no diabetes
-    # information is provided
-    dm_factor = 0 if dm is None else -0.1475 * (dm - 0.5106)
-
-    # Calculate the hypertension factor, or set it to 0 if no
-    # hypertension information is provided
-    htn_factor = 0 if htn is None else 0.1426 * (htn - 0.8501)
-
-    # Return the calculated risk prediction
-    return 1 - alpha ** np.exp(
-        -0.2201 * (age / 10 - 7.036)
-        + 0.2467 * (sex - 0.5642)
-        - 0.5567 * (eGFR / 5 - 7.222)
-        + 0.4510 * (np.log(uACR) - 5.137)
-        + dm_factor
-        + htn_factor
+    # Check if the region is North American
+    is_north_american = Region == "North American"
+    # Set alpha based on region and years
+    alpha = np.where(
+        Region == "North American",
+        np.where(years == 2, alpha_values[(True, 2)], alpha_values[(True, 5)]),
+        np.where(years == 2, alpha_values[(False, 2)], alpha_values[(False, 5)]),
     )
+
+    # Make sure uACR is positive to take the log
+    uACR = np.where(uACR <= 0, 1e-6, uACR)
+    log_uACR = np.log(uACR)
+
+    # Initialize risk prediction factors
+    risk_factors = (
+        base_risk_factors["age"] * (age / 10 - 7.036)
+        + base_risk_factors["sex"] * (sex - 0.5642)
+        + base_risk_factors["eGFR"] * (eGFR / 5 - 7.222)
+        + base_risk_factors["uACR"] * (log_uACR - 5.137)
+    )
+
+    if dm is not None and htn is not None:
+        dm_factor = -0.1475 * (dm - 0.5106)
+        htn_factor = 0.1426 * (htn - 0.8501)
+        risk_factors += dm_factor + htn_factor
+    if (
+        albumin is not None
+        and phosphorous is not None
+        and bicarbonate is not None
+        and calcium is not None
+    ):
+        albumin_factor = -0.3441 * (albumin - 3.997)
+        phosph_factor = +0.2604 * (phosphorous - 3.916)
+        bicarb_factor = -0.07354 * (bicarbonate - 25.57)
+        calcium_factor = -0.2228 * (calcium - 9.355)
+        risk_factors += albumin_factor + phosph_factor + bicarb_factor + calcium_factor
+
+    risk_prediction = 1 - alpha ** np.exp(risk_factors)
+    return risk_prediction
