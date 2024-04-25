@@ -200,24 +200,33 @@ def risk_pred(
     Parameters:
     - age (float): Age of the patient.
     - sex (int): Biological sex of the patient, 0 for female and 1 for male.
-    - eGFR (float): Estimated Glomerular Filtration Rate, a measure of kidney function.
-    - uACR (float): Urinary Albumin to Creatinine Ratio, an indicator of kidney damage.
+    - eGFR (float): Estimated Glomerular Filtration Rate, a measure of kidney 
+      function.
+    - uACR (float): Urinary Albumin to Creatinine Ratio, an indicator of kidney 
+      damage.
     - Region (str): Geographic region of the patient, influences model constants.
     - dm (float, optional): Diabetes mellitus indicator (0 or 1).
     - htn (float, optional): Hypertension indicator (0 or 1).
-    - albumin (float, optional): Serum albumin level, required for the 8-variable model.
-    - phosphorous (float, optional): Serum phosphorous level, required for the 8-variable model.
-    - bicarbonate (float, optional): Serum bicarbonate level, required for the 8-variable model.
-    - calcium (float, optional): Serum calcium level, required for the 8-variable model.
-    - years (int, default=2): The time horizon of the risk prediction, typically 2 or 5 years.
+    - albumin (float, optional): Serum albumin level, required for the 
+      8-variable model.
+    - phosphorous (float, optional): Serum phosphorous level, required for the 
+      8-variable model.
+    - bicarbonate (float, optional): Serum bicarbonate level, required for the 
+      8-variable model.
+    - calcium (float, optional): Serum calcium level, required for the 
+      8-variable model.
+    - years (int, default=2): The time horizon of the risk prediction, 
+      typically 2 or 5 years.
 
     Returns:
-    - risk_prediction (float): The computed risk of developing the condition, as a probability between 0 and 1.
+    - risk_prediction (float): The computed risk of developing the condition, 
+      as a probability between 0 and 1.
 
     Notes:
-    The function dynamically selects between a 4-variable, 6-variable, or 8-variable model based
-    on the availability of optional parameters. The risk factors and coefficients are adjusted
-    based on the patient's geographic region and the specified number of years for prediction.
+    The function dynamically selects between a 4-variable, 6-variable, or
+    8-variable model based on the availability of optional parameters. The risk 
+    factors and coefficients are adjusted based on the patient's geographic 
+    region and the specified number of years for prediction.
     """
     # Determine alpha based on region, years, and the variables used
     if dm is not None and htn is not None:
