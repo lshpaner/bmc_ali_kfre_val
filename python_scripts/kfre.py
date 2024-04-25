@@ -53,7 +53,7 @@ class RiskPredictor:
         """
         self.data["uPCR (mg/g)"] = self.data[self.columns["uPCR_mmol"]] * 8.84
         self.data["Calcium (mg/dL)"] = self.data[self.columns["calcium_mmol"]] * 4
-        self.data["Phosphate (mg/g)"] = self.data[self.columns["phosphate_mmol"]] * 3.1
+        self.data["Phosphate (mg/dL)"] = self.data[self.columns["phosphate_mmol"]] * 3.1
         self.data["Albumin (g/dL)"] = self.data[self.columns["albumin_g_per_l"]] / 10
 
     def predict_kfre(self, years, use_extra_vars=False, num_vars=4):
@@ -118,6 +118,7 @@ class RiskPredictor:
 
 ################################################################################
 ################################ uPCR to uACR ##################################
+################################################################################
 
 
 # Define the generalized conversion function from uPCR to uACR
