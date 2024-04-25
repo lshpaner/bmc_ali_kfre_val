@@ -40,12 +40,6 @@ class RiskPredictor:
         """
         self.data = data
         self.columns = columns
-        # if apply_conversions:
-        #     # Perform the unit conversions with flexible column names
-        #     self.data["uPCR (mg/g)"] = self.data[self.columns['uPCR_mmol']] * 4
-        #     self.data["Calcium (mg/g)"] = self.data[self.columns['calcium_mmol']] * 4
-        #     self.data["Phosphate (mg/g)"] = self.data[self.columns['phosphate_mmol']] * 3.1
-        #     self.data["Albumin (g/dL)"] = self.data[self.columns['albumin_g_per_l']] / 10
 
     def perform_conversions(self):
         """
@@ -58,8 +52,8 @@ class RiskPredictor:
         - Albumin from g/L to g/dL
         """
         self.data["uPCR (mg/g)"] = self.data[self.columns["uPCR_mmol"]] * 8.84
-        self.data["Calcium (mg/g)"] = self.data[self.columns["calcium_mmol"]] * 4
-        self.data["Phosphate (mg/g)"] = self.data[self.columns["phosphate_mmol"]] * 3.1
+        self.data["Calcium (mg/dL)"] = self.data[self.columns["calcium_mmol"]] * 4
+        self.data["Phosphate (mg/dL)"] = self.data[self.columns["phosphate_mmol"]] * 3.1
         self.data["Albumin (g/dL)"] = self.data[self.columns["albumin_g_per_l"]] / 10
 
     def predict_kfre(self, years, use_extra_vars=False, num_vars=4):
@@ -124,6 +118,7 @@ class RiskPredictor:
 
 ################################################################################
 ################################ uPCR to uACR ##################################
+################################################################################
 
 
 # Define the generalized conversion function from uPCR to uACR
@@ -250,8 +245,9 @@ def risk_pred(
     # Check if the region is North American
     is_north_american = Region == "North American"
     # Set alpha based on region and years
+
     alpha = np.where(
-        Region == "North American",
+        is_north_american,
         np.where(years == 2, alpha_values[(True, 2)], alpha_values[(True, 5)]),
         np.where(years == 2, alpha_values[(False, 2)], alpha_values[(False, 5)]),
     )
