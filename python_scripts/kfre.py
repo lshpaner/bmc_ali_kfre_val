@@ -51,69 +51,77 @@ class RiskPredictor:
         - Phosphate from mmol to mg/g
         - Albumin from g/L to g/dL
         """
-        self.data["uPCR (mg/g)"] = self.data[self.columns["uPCR_mmol"]] * 8.84
+        conversion_factor = 1 / 0.11312
+        self.data["uPCR (mg/g)"] = self.data[self.columns["uPCR_mmol"]] * conversion_factor
         self.data["Calcium (mg/dL)"] = self.data[self.columns["calcium_mmol"]] * 4
         self.data["Phosphate (mg/dL)"] = self.data[self.columns["phosphate_mmol"]] * 3.1
         self.data["Albumin (g/dL)"] = self.data[self.columns["albumin_g_per_l"]] / 10
 
-    def predict_kfre(self, years, use_extra_vars=False, num_vars=4):
-        """
-        Predicts the risk of CKD for the given number of years, optionally using
-        extra variables for the prediction.
+    def predict_kfre(self, years, is_north_american, use_extra_vars=False, num_vars=4):
+        # Basic required columns
+        necessary_cols = [
+            self.columns["age"],
+            self.columns["sex"],
+            self.columns["eGFR"],
+            self.columns["uACR"],
+        ]
 
-        Parameters:
-        years (int): The number of years for which to predict the risk.
-        use_extra_vars (bool, optional): Whether to use extra variables
-                                         (diabetes and hypertension status)
-                                         for the prediction.
-        num_vars (int, optional): The number of variables to use for the prediction.
+        # Retrieve data only once
+        data = self.data[necessary_cols].copy()
 
-        Returns:
-        risk_prediction (float): The predicted risk of CKD.
-        """
-        # Accessing columns using user-defined mappings
-        age = self.data[self.columns["age"]]
-        sex = self.data[self.columns["sex"]].apply(
-            lambda x: 1 if x is not None and x.lower() == "male" else 0
-        )
-        eGFR = self.data[self.columns["eGFR"]]
-        uACR = self.data[self.columns["uACR"]]
-        region = self.data.get(self.columns["region"], "Unknown")
+        # Convert sex to numeric in a vectorized way
+        data[self.columns["sex"]] = (
+            data[self.columns["sex"]].str.lower() == "male"
+        ).astype(int)
 
-        if use_extra_vars and num_vars == 6:
-            dm = self.data.get(self.columns["dm"], None)
-            htn = self.data.get(self.columns["htn"], None)
-            return risk_pred(
-                age,
-                sex,
-                eGFR,
-                uACR,
-                region,
-                dm,
-                htn,
-                years=years,
-            )
+        # Extract basic parameters from the DataFrame
+        age = data[self.columns["age"]]
+        sex = data[self.columns["sex"]]
+        eGFR = data[self.columns["eGFR"]]
+        uACR = data[self.columns["uACR"]]
 
-        elif use_extra_vars and num_vars == 8:
-            albumin = self.data.get(self.columns["albumin"], None)
-            phosphorous = self.data.get(self.columns["phosphorous"], None)
-            bicarbonate = self.data.get(self.columns["bicarbonate"], None)
-            calcium = self.data.get(self.columns["calcium"], None)
-            return risk_pred(
-                age,
-                sex,
-                eGFR,
-                uACR,
-                region,
-                albumin=albumin,
-                phosphorous=phosphorous,
-                bicarbonate=bicarbonate,
-                calcium=calcium,
-                years=years,
-            )
-
+        if use_extra_vars:
+            if num_vars == 6:
+                # Extend columns for 6-variable model
+                necessary_cols.extend([self.columns["dm"], self.columns["htn"]])
+                data = self.data[necessary_cols].copy()
+                dm = data[self.columns["dm"]]
+                htn = data[self.columns["htn"]]
+                return risk_pred(
+                    age, sex, eGFR, uACR, is_north_american, dm, htn, years=years
+                )
+            elif num_vars == 8:
+                # Extend columns for 8-variable model
+                necessary_cols.extend(
+                    [
+                        self.columns["albumin"],
+                        self.columns["phosphorous"],
+                        self.columns["bicarbonate"],
+                        self.columns["calcium"],
+                    ]
+                )
+                data = self.data[necessary_cols].copy()
+                albumin = data[self.columns["albumin"]]
+                phosphorous = data[self.columns["phosphorous"]]
+                bicarbonate = data[self.columns["bicarbonate"]]
+                calcium = data[self.columns["calcium"]]
+                return risk_pred(
+                    age,
+                    sex,
+                    eGFR,
+                    uACR,
+                    is_north_american,
+                    None,
+                    None,
+                    albumin,
+                    phosphorous,
+                    bicarbonate,
+                    calcium,
+                    years=years,
+                )
         else:
-            return risk_pred(age, sex, eGFR, uACR, region, years=years)
+            # Call the function with basic parameters for the 4-variable model
+            return risk_pred(age, sex, eGFR, uACR, is_north_american, years=years)
 
 
 ################################################################################
@@ -184,7 +192,7 @@ def risk_pred(
     sex,
     eGFR,
     uACR,
-    Region,
+    is_north_american,  
     dm=None,
     htn=None,
     albumin=None,
@@ -194,19 +202,23 @@ def risk_pred(
     years=2,
 ):
     """
-    Calculates a risk prediction for a patient based on demographic and clinical
-    data using either a 4-variable, 6-variable, or 8-variable model.
+    Calculates the risk of chronic kidney disease progression based on a range 
+    of clinical parameters using the Tangri risk prediction model. This model 
+    can use 4, 6, or 8 variables for prediction based on the data available. 
+    The coefficients and constants used in the calculations are selected based 
+    on the geographic region of the patient (North American or not) and the time 
+    horizon for the risk prediction (2 or 5 years).
 
     Parameters:
-    - age (float): Age of the patient.
-    - sex (int): Biological sex of the patient, 0 for female and 1 for male.
-    - eGFR (float): Estimated Glomerular Filtration Rate, a measure of kidney 
+    - age (float): Age of the patient in years.
+    - sex (int): Biological sex of the patient (0 for female, 1 for male).
+    - eGFR (float): Estimated Glomerular Filtration Rate, indicating kidney 
       function.
-    - uACR (float): Urinary Albumin to Creatinine Ratio, an indicator of kidney 
-      damage.
-    - Region (str): Geographic region of the patient, influences model constants.
-    - dm (float, optional): Diabetes mellitus indicator (0 or 1).
-    - htn (float, optional): Hypertension indicator (0 or 1).
+    - uACR (float): Urinary Albumin to Creatinine Ratio, showing kidney damage 
+      level.
+    - is_north_american (bool): Indicates if the patient is from North America.
+    - dm (float, optional): Indicates if the patient has diabetes (0 or 1).
+    - htn (float, optional): Indicates if the patient has hypertension (0 or 1).
     - albumin (float, optional): Serum albumin level, required for the 
       8-variable model.
     - phosphorous (float, optional): Serum phosphorous level, required for the 
@@ -215,22 +227,24 @@ def risk_pred(
       8-variable model.
     - calcium (float, optional): Serum calcium level, required for the 
       8-variable model.
-    - years (int, default=2): The time horizon of the risk prediction, 
-      typically 2 or 5 years.
+    - years (int, default=2): The number of years over which the risk is 
+      redicted (2 or 5 years).
 
     Returns:
-    - risk_prediction (float): The computed risk of developing the condition, 
-      as a probability between 0 and 1.
+    - risk_prediction (float): A probability value between 0 and 1 representing 
+      the patient's risk of developing chronic kidney disease within the 
+      specified number of years.
 
     Notes:
-    The function dynamically selects between a 4-variable, 6-variable, or
-    8-variable model based on the availability of optional parameters. The risk 
-    factors and coefficients are adjusted based on the patient's geographic 
-    region and the specified number of years for prediction.
+    The function accounts for the patient's geographic location by adjusting the 
+    alpha constants in the risk calculation. It defaults to coefficients for the 
+    4-variable model unless additional parameters are provided, in which case it
+    switches to the 6-variable or 8-variable models.
     """
-    # Determine alpha based on region, years, and the variables used
+
+    # Alpha values and base risk factors need to be selected based on the model used
     if dm is not None and htn is not None:
-        # 6-variable model (uses 4-var coefficients for risk factors)
+        # 6-variable model
         alpha_values = {
             (True, 2): 0.9750,
             (True, 5): 0.9240,
@@ -249,7 +263,7 @@ def risk_pred(
         and bicarbonate is not None
         and calcium is not None
     ):
-        # 8-variable model (uses specific coefficients for risk factors)
+        # 8-variable model
         alpha_values = {
             (True, 2): 0.9780,
             (True, 5): 0.9301,
@@ -263,7 +277,7 @@ def risk_pred(
             "uACR": 0.3364,
         }
     else:
-        # 4-variable model (standard coefficients for risk factors)
+        # 4-variable model
         alpha_values = {
             (True, 2): 0.9750,
             (True, 5): 0.9240,
@@ -277,21 +291,14 @@ def risk_pred(
             "uACR": 0.4510,
         }
 
-    # Check if the region is North American
-    is_north_american = Region == "North American"
-    # Set alpha based on region and years
+    # Select alpha based on the patient's region and the number of years
+    alpha = alpha_values[(is_north_american, years)]
 
-    alpha = np.where(
-        is_north_american,
-        np.where(years == 2, alpha_values[(True, 2)], alpha_values[(True, 5)]),
-        np.where(years == 2, alpha_values[(False, 2)], alpha_values[(False, 5)]),
-    )
-
-    # Make sure uACR is positive to take the log
-    uACR = np.where(uACR <= 0, 1e-6, uACR)
+    # Ensure uACR is positive to avoid log(0)
+    uACR = np.maximum(uACR, 1e-6)
     log_uACR = np.log(uACR)
 
-    # Initialize risk prediction factors
+    # Calculate risk factors based on base risk factors for the appropriate model
     risk_factors = (
         base_risk_factors["age"] * (age / 10 - 7.036)
         + base_risk_factors["sex"] * (sex - 0.5642)
@@ -299,10 +306,12 @@ def risk_pred(
         + base_risk_factors["uACR"] * (log_uACR - 5.137)
     )
 
+    # Adjust risk factors for the 6-variable or 8-variable model if necessary
     if dm is not None and htn is not None:
         dm_factor = -0.1475 * (dm - 0.5106)
         htn_factor = 0.1426 * (htn - 0.8501)
         risk_factors += dm_factor + htn_factor
+
     if (
         albumin is not None
         and phosphorous is not None
@@ -315,5 +324,6 @@ def risk_pred(
         calcium_factor = -0.2228 * (calcium - 9.355)
         risk_factors += albumin_factor + phosph_factor + bicarb_factor + calcium_factor
 
+    # Compute the risk prediction
     risk_prediction = 1 - alpha ** np.exp(risk_factors)
     return risk_prediction
