@@ -106,3 +106,5 @@ Contributions to this project are welcome. If you have any suggestions, improvem
 ## References
 
 Ali, I., Donne, R. L., & Kalra, P. A. (2021). A validation study of the kidney failure risk equation in advanced chronic kidney disease according to disease aetiology with evaluation of discrimination, calibration and clinical utility. *BMC Nephrology, 22(1),* 194.  doi: 10.1186/s12882-021-02402-1
+
+Shpaner, L. (2024). *kfre: A Python library for reproducing Kidney Failure Risk Equations (KFRE)* (Version 0.1.5) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.11100222
