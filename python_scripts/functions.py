@@ -563,13 +563,81 @@ def kde_distributions(
     image_path_svg=None,
     image_filename=None,
     bbox_inches=None,
+    vars_of_interest=None,  # List of variables of interest
+    single_var_image_path_png=None,
+    single_var_image_path_svg=None,
+    single_var_image_filename=None,
 ):
+    
+    """
+    Generate KDE or histogram distribution plots for specified columns in a DataFrame.
+
+    Parameters:
+    -----------
+    df : pandas.DataFrame
+        The DataFrame containing the data to plot.
+
+    dist_list : list of str
+        List of column names for which to generate distribution plots.
+
+    x : int or float
+        Width of the overall figure.
+
+    y : int or float
+        Height of the overall figure.
+
+    kde : bool, optional (default=True)
+        Whether to include KDE plots on the histograms.
+
+    n_rows : int, optional (default=1)
+        Number of rows in the subplot grid.
+
+    n_cols : int, optional (default=1)
+        Number of columns in the subplot grid.
+
+    w_pad : float, optional (default=1.0)
+        Width padding between subplots.
+
+    h_pad : float, optional (default=1.0)
+        Height padding between subplots.
+
+    text_wrap : int, optional (default=50)
+        Maximum width of the title text before wrapping.
+
+    image_path_png : str, optional
+        Directory path to save the PNG image of the overall distribution plots.
+
+    image_path_svg : str, optional
+        Directory path to save the SVG image of the overall distribution plots.
+
+    image_filename : str, optional
+        Filename to use when saving the overall distribution plots.
+
+    bbox_inches : str, optional
+        Bounding box to use when saving the figure. For example, 'tight'.
+
+    vars_of_interest : list of str, optional
+        List of column names for which to generate separate distribution plots.
+
+    single_var_image_path_png : str, optional
+        Directory path to save the PNG images of the separate distribution plots.
+
+    single_var_image_path_svg : str, optional
+        Directory path to save the SVG images of the separate distribution plots.
+
+    single_var_image_filename : str, optional
+        Filename to use when saving the separate distribution plots. The variable name will be appended to this filename.
+
+    Returns:
+    --------
+    None
+    """
+    
     if not dist_list:
         print("Error: No distribution list provided.")
         return
 
     # Calculate the number of columns needed
-
     # Create subplots grid
     fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(x, y))
 
@@ -585,8 +653,9 @@ def kde_distributions(
             sns.histplot(df[col], kde=kde, ax=ax)
             ax.set_title("\n".join(textwrap.wrap(title, width=text_wrap)))
 
-        # Adjust layout with specified padding
+    # Adjust layout with specified padding
     plt.tight_layout(w_pad=w_pad, h_pad=h_pad)
+    
     # Save files if paths are provided
     if image_path_png and image_filename:
         plt.savefig(
@@ -599,3 +668,28 @@ def kde_distributions(
             bbox_inches=bbox_inches,
         )
     plt.show()
+
+    # Generate separate plots for each variable of interest if provided
+    if vars_of_interest:
+        for var in vars_of_interest:
+            fig, ax = plt.subplots(figsize=(x, y))
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                title = f"Distribution of {var}"
+                sns.histplot(df[var], kde=kde, ax=ax)
+                ax.set_title("\n".join(textwrap.wrap(title, width=text_wrap)))
+            
+            plt.tight_layout()
+            
+            # Save files for the variable of interest if paths are provided
+            if single_var_image_path_png and single_var_image_filename:
+                plt.savefig(
+                    os.path.join(single_var_image_path_png, f"{single_var_image_filename}_{var}.png"),
+                    bbox_inches=bbox_inches,
+                )
+            if single_var_image_path_svg and single_var_image_filename:
+                plt.savefig(
+                    os.path.join(single_var_image_path_svg, f"{single_var_image_filename}_{var}.svg"),
+                    bbox_inches=bbox_inches,
+                )
+            plt.show()
